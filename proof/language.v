@@ -1,7 +1,8 @@
 Require Import Arith.
-Require Import Lists.List.
 Require Import Coq.Relations.Relation_Definitions.
-Require Import FunInd.
+Require Import Coq.Sets.Ensembles.
+
+Require Import Logic.FinFun.
 
 Inductive char : Type :=
   | O
@@ -26,7 +27,7 @@ Fixpoint concat_words w1 w2 :=
 
 Notation "a ^ b" := (concat_words a b).
 
-Lemma void_concat :
+Lemma concat_w_void :
   forall w, w ^ Void = w.
 Proof.
   intros.
@@ -44,9 +45,8 @@ Proof.
   + simpl. rewrite IHw1. reflexivity.
 Qed.
 
-Compute (Concat O Void ^ Concat I Void ^ Concat O Void).
 
-Lemma concat_size :
+Lemma size_concat :
   forall w1 w2, size (w1 ^ w2) = (size w1) + (size w2).
 Proof.
   intros.
@@ -142,12 +142,12 @@ Proof.
     * discriminate H.
 Qed.
 
-Lemma concat_size_void_l:
+Lemma size_concat_void_l:
   forall u v, size(u ^ v) = size(v) <-> u = Void.
 Proof.
   intros.
   split.
-  + rewrite concat_size. 
+  + rewrite size_concat. 
     intro. 
     rewrite Nat.add_comm in H.
     rewrite <- Nat.add_0_r in H.
@@ -158,38 +158,43 @@ Proof.
     auto.
 Qed.
 
-Lemma concat_size_void_r:
+Lemma size_concat_void_r:
   forall u v, size(v ^ u) = size(v) <-> u = Void.
 Proof.
   intros.
   split.
-  + rewrite concat_size.
+  + rewrite size_concat.
     intro.
     rewrite <- Nat.add_0_r in H.
     apply plus_reg_l in H.
     apply size_void in H. assumption.
   + intro.
     rewrite H.
-    rewrite void_concat.
+    rewrite concat_w_void.
     auto.
 Qed.
 
-Lemma concat_eq_void:
-  forall u v, u ^ v = Void -> u = Void /\ v = Void.
+Lemma concat_void_iff:
+  forall u v, u ^ v = Void <-> u = Void /\ v = Void.
 Proof.
   intros.
-  apply eq_size in H.
-  rewrite concat_size in H.
-  simpl in H.
-  apply plus_is_O in H.
-  inversion H. 
-  apply size_void in H0.
-  apply size_void in H1.
-  auto.
+  split; intro.
+  - apply eq_size in H.
+    rewrite size_concat in H.
+    simpl in H.
+    apply plus_is_O in H.
+    inversion H. 
+    apply size_void in H0.
+    apply size_void in H1.
+    auto.
+  - elim H.
+    intros H2 H3.
+    rewrite H2, H3.
+    simpl. reflexivity.
 Qed.
 
 
-Lemma concat_size_void_lr:
+Lemma size_concat_void_lr:
   forall u v w, size(u ^ v ^ w) = size(v) <-> u = Void /\ w = Void.
 Proof.
   intros.
@@ -198,23 +203,23 @@ Proof.
     induction v.
     - simpl in H. apply size_void in H.
        apply concat_concat_void in H. assumption.
-    - rewrite concat_size in H.
-      rewrite concat_size in H.
+    - rewrite size_concat in H.
+      rewrite size_concat in H.
       simpl in H. rewrite Nat.add_comm in H.
       simpl in H.
       inversion H.
       apply IHv.
-      rewrite concat_size.
-      rewrite concat_size.
+      rewrite size_concat.
+      rewrite size_concat.
       rewrite Nat.add_comm.
       assumption.
   + intros.
     inversion H.
     rewrite H0, H1.
-    simpl. rewrite void_concat. reflexivity.
+    simpl. rewrite concat_w_void. reflexivity.
 Qed.
 
-Lemma super_lemma:
+Lemma less_size_eq:
   forall u v,
     less u v -> size(u) = size(v) -> u = v.
 Proof.
@@ -224,15 +229,15 @@ Proof.
   assert(H3:=H2).
   apply eq_size in H2.
   rewrite <- H0 in H2.
-  rewrite concat_size_void_lr in H2.
+  rewrite size_concat_void_lr in H2.
   inversion H2.
   rewrite H4 in H3.
   rewrite H5 in H3.
-  simpl in H3. rewrite void_concat in H3. assumption.
+  simpl in H3. rewrite concat_w_void in H3. assumption.
 Qed.
 
 
-Lemma less_le_size:
+Lemma less_le:
   forall u v,
     less u v -> size (u) <= size(v).
 Proof.
@@ -253,7 +258,7 @@ Proof.
   split.
   + unfold reflexive.
     intros.
-    * unfold less. exists Void, Void. simpl. apply void_concat.
+    * unfold less. exists Void, Void. simpl. apply concat_w_void.
   + unfold transitive.
     intros x y z [u1 [v1 H1]] [u2 [v2 H2]].
     unfold less.
@@ -268,15 +273,15 @@ Proof.
     intros x y.
     intros H1 H2.
     assert (H3:less x y) by assumption.
-    apply less_le_size in H1.
-    apply less_le_size in H2.
+    apply less_le in H1.
+    apply less_le in H2.
     cut (size(x) = size(y)).
     * intros.
-      apply super_lemma; assumption.
+      apply less_size_eq; assumption.
     * apply le_antisym; assumption.
 Qed.
 
-Lemma void_minimal :
+Lemma void_minimal_less :
   forall w, less Void w.
 Proof.
   intros.
@@ -284,3 +289,145 @@ Proof.
   exists Void, w.
   + simpl. reflexivity.
 Qed.
+
+
+Require Import Coq.Lists.ListSet.
+Require Import Coq.Lists.List.
+Import List.ListNotations.
+
+Lemma word_eq_dec :
+  forall x y:word, {x = y} + {x <> y}.
+Proof.
+  decide equality.
+  decide equality.
+Qed.
+
+Fixpoint ln (n:nat) : list word :=
+  match n with
+  | 0 => [Void]
+  | S m =>
+    let lnm := (ln m) in
+    let with_O := map (Concat O) lnm in
+    let with_I := map (Concat I) lnm in
+     with_O ++ with_I
+  end.
+
+Lemma card_ln:
+  forall n, List.length (ln n) = Nat.pow 2 n.
+Proof.
+  intro.
+  induction n.
+  + simpl. reflexivity.
+  + simpl.
+    rewrite app_length.
+    rewrite map_length.
+    rewrite map_length.
+    rewrite IHn.
+    simpl.
+    rewrite Nat.add_0_r.
+    reflexivity.
+Qed.
+
+Lemma extend_c_injective:
+  forall c, Injective (Concat c).
+Proof.
+  unfold Injective.
+  intros.
+  inversion H.
+  reflexivity.
+Qed.
+
+Inductive disjoints : (list word) -> (list word) -> Prop :=
+  | Disjoints_nil : forall l, disjoints [] l
+  | Disjoints_cons_l : forall x l1 l2, ~ In x l2 -> disjoints l1 l2 -> disjoints (x::l1) l2.
+
+Check(disjoints_ind).
+
+Lemma NoDup_app_disjoints: 
+  forall l1 l2, disjoints l1 l2 -> NoDup l1 -> NoDup l2 -> NoDup (l1 ++ l2).
+Proof.
+  intros.
+  induction l1.
+  ++ simpl. assumption.
+  ++ simpl app.
+    inversion H0.
+    inversion H.
+    apply IHl1 in H10.
+    apply NoDup_cons_iff.
+    split.
+    * rewrite in_app_iff.
+      unfold not.
+      intros.
+      elim H11; [apply H4 | apply H8].
+    * assumption.
+    * assumption.
+Qed.
+
+
+Lemma super:
+  forall a x, In x (map (Concat I) a) -> exists w, x = Concat I w.
+Proof.
+  intros.
+  rewrite in_map_iff in H.
+  inversion H.
+  inversion H0.
+  exists x0.
+  symmetry. 
+  assumption.
+Qed.
+
+
+Fixpoint disjoints2 (l1 l2 : list word) : Prop :=
+  match l1 with
+  | [] => True
+  | x::ll1 =>
+    ~ In x l2 /\ disjoints2 ll1 l2
+  end.
+
+Lemma disjoints2_mapO_mapI:
+  forall a, disjoints2 (map (Concat O) a) (map (Concat I) a).
+Proof.
+  intro.
+  induction a.
+  + simpl. auto.
+  + simpl. split.
+    - red. intro.
+      rewrite in_map_iff in H.
+      inversion H.
+      discriminate H0.
+      inversion H0.
+      inversion H1.
+      discriminate H2.
+    - induction a0.
+      * simpl. auto.
+      * simpl. split.
+
+Lemma disjoints_mapO_mapI:
+  forall a, disjoints (map (Concat O) a) (map (Concat I) a).
+Proof.
+  intros.
+  induction a.
+  + simpl. apply Disjoints_nil.
+  + simpl. apply Disjoints_cons_l.
+    * simpl. unfold not. intro.
+      inversion H.
+      discriminate H0.
+      apply super in H0.
+      inversion H0.
+      discriminate H1.
+    *
+
+
+Lemma ln_set:
+  forall n, NoDup (ln n).
+Proof.
+  intros.
+  induction n as [|n H].
+  + simpl.
+    apply NoDup_cons.
+    ++ auto.
+    ++ apply NoDup_nil.
+  + simpl.
+    apply NoDup_app_disjoints.
+    *
+    apply Injective_map_NoDup.
