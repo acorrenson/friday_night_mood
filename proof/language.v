@@ -377,30 +377,38 @@ Proof.
 Qed.
 
 
-Fixpoint disjoints2 (l1 l2 : list word) : Prop :=
-  match l1 with
-  | [] => True
-  | x::ll1 =>
-    ~ In x l2 /\ disjoints2 ll1 l2
-  end.
+Definition disjoints2 (l1 l2 : list word) := 
+  forall x, In x l1 -> ~ In x l2 /\ forall x, In x l2 -> ~In x l1.
 
 Lemma disjoints2_mapO_mapI:
   forall a, disjoints2 (map (Concat O) a) (map (Concat I) a).
 Proof.
   intro.
   induction a.
-  + simpl. auto.
-  + simpl. split.
-    - red. intro.
-      rewrite in_map_iff in H.
+  + simpl. 
+    unfold disjoints2.
+    split;intros.
+    - auto.
+    - intro. auto.
+  + unfold disjoints2.
+    split; intros.
+    - rewrite in_map_iff in H.
       inversion H.
-      discriminate H0.
+      inversion H0.
+      rewrite in_map_iff.
+      red.
+      intros [x1 [H3 H4]].
+      rewrite <- H3 in H1.
+      discriminate H1.
+    - rewrite in_map_iff in H0.
       inversion H0.
       inversion H1.
+      rewrite in_map_iff.
+      red.
+      intros [x2 [H4 H5]].
+      rewrite <- H4 in H2.
       discriminate H2.
-    - induction a0.
-      * simpl. auto.
-      * simpl. split.
+Qed.
 
 Lemma disjoints_mapO_mapI:
   forall a, disjoints (map (Concat O) a) (map (Concat I) a).
