@@ -343,6 +343,14 @@ Inductive disjoints : (list word) -> (list word) -> Prop :=
 
 Check(disjoints_ind).
 
+Lemma disjoints_cons:
+  forall a l1 l2, disjoints (a::l1) l2 -> disjoints l1 l2.
+Proof.
+  intros.
+  inversion  H.
+  assumption.
+Qed.
+
 Lemma NoDup_app_disjoints: 
   forall l1 l2, disjoints l1 l2 -> NoDup l1 -> NoDup l2 -> NoDup (l1 ++ l2).
 Proof.
@@ -364,78 +372,139 @@ Proof.
 Qed.
 
 
-Lemma super:
-  forall a x, In x (map (Concat I) a) -> exists w, x = Concat I w.
-Proof.
-  intros.
-  rewrite in_map_iff in H.
-  inversion H.
-  inversion H0.
-  exists x0.
-  symmetry. 
-  assumption.
-Qed.
-
-
 Definition disjoints2 (l1 l2 : list word) := 
-  forall x, In x l1 -> ~ In x l2 /\ forall x, In x l2 -> ~In x l1.
+  forall x, (In x l1 -> ~ In x l2) /\ (In x l2 -> ~In x l1).
 
 Lemma disjoints2_mapO_mapI:
   forall a, disjoints2 (map (Concat O) a) (map (Concat I) a).
 Proof.
   intro.
-  induction a.
-  + simpl. 
-    unfold disjoints2.
-    split;intros.
-    - auto.
-    - intro. auto.
-  + unfold disjoints2.
-    split; intros.
-    - rewrite in_map_iff in H.
-      inversion H.
-      inversion H0.
-      rewrite in_map_iff.
-      red.
-      intros [x1 [H3 H4]].
-      rewrite <- H3 in H1.
-      discriminate H1.
-    - rewrite in_map_iff in H0.
-      inversion H0.
-      inversion H1.
-      rewrite in_map_iff.
-      red.
-      intros [x2 [H4 H5]].
-      rewrite <- H4 in H2.
-      discriminate H2.
+  unfold disjoints2.
+  intros x.
+  split;
+  intros H1 H2;
+  rewrite in_map_iff in H1;
+  rewrite in_map_iff in H2;
+  inversion H1 as [? [H1' _ ]];
+  inversion H2 as [? [H2' _ ]];
+  rewrite <- H1' in H2';
+  discriminate H2'.
 Qed.
 
-Lemma disjoints_mapO_mapI:
-  forall a, disjoints (map (Concat O) a) (map (Concat I) a).
+Lemma disjoints2_cons_inv:
+  forall a l1 l2,
+  disjoints2 l1 l2 -> ~ In a l2 -> disjoints2 (a :: l1) l2.
 Proof.
   intros.
-  induction a.
-  + simpl. apply Disjoints_nil.
-  + simpl. apply Disjoints_cons_l.
-    * simpl. unfold not. intro.
-      inversion H.
-      discriminate H0.
-      apply super in H0.
-      inversion H0.
-      discriminate H1.
-    *
+  unfold disjoints2.
+  intros.
+  split.
+  - intros.
+    inversion H1.
+    * rewrite <- H2. assumption.
+    * apply H. assumption.
+  - intros.
+    red.
+    intros.
+    inversion H2.
+    * rewrite <- H3 in H1. contradiction H1.
+    * apply H in H3. exfalso. assumption. assumption.
+Qed.
+
+Lemma disjoints2_cons:
+  forall a l1 l2, disjoints2 (a :: l1) l2 -> disjoints2 l1 l2.
+Proof.
+  intros.
+  unfold disjoints2.
+  intros.
+  split.
+  - intros.
+    apply H.
+    apply in_cons. assumption.
+  - intros.
+    red. intros.
+    apply H in H0.
+    apply not_in_cons in H0 as [_ H2].
+    contradiction H1.
+Qed.
 
 
-Lemma ln_set:
+Lemma disjoints2_comm:
+  forall l1 l2, disjoints2 l1 l2 -> disjoints2 l2 l1.
+Proof.
+  intros l1 l2 H w.
+  split; apply H.
+Qed.
+
+Lemma NoDup_app_disjoints2: 
+  forall l1 l2, disjoints2 l1 l2 -> NoDup l1 -> NoDup l2 -> NoDup (l1 ++ l2).
+Proof.
+  intros l1 l2 H1 H2 H3.
+  induction l1 as [|w l1 IH].
+  + simpl. assumption.
+  + simpl.
+    apply NoDup_cons_iff.
+    split.
+    - red.
+      intros H4.
+      apply in_app_or in H4 as [H6 | H6].
+      * apply NoDup_cons_iff in H2 as [H7 _].
+        contradiction H7.
+      * apply H1 in H6.
+        elim H6.
+        apply in_eq.
+    - apply IH.
+      * apply disjoints2_cons in H1. assumption.
+      * apply NoDup_cons_iff in H2 as [?]. assumption.
+Qed.
+
+Lemma ln_NoDup:
   forall n, NoDup (ln n).
 Proof.
   intros.
   induction n as [|n H].
   + simpl.
     apply NoDup_cons.
-    ++ auto.
-    ++ apply NoDup_nil.
+    * auto.
+    * apply NoDup_nil.
   + simpl.
-    apply NoDup_app_disjoints.
-    *
-    apply Injective_map_NoDup.
+    apply NoDup_app_disjoints2.
+    apply disjoints2_mapO_mapI.
+    all: apply Injective_map_NoDup; [apply extend_c_injective | assumption].
+Qed.
+
+Lemma disjoints2_disjoints:
+  forall l1 l2, disjoints2 l1 l2 -> disjoints l1 l2.
+Proof.
+  intros.
+  induction l1.
+  + apply Disjoints_nil.
+  + apply Disjoints_cons_l.
+    - apply H. apply in_eq.
+    - apply IHl1.
+      apply disjoints2_cons in H.
+      assumption.
+Qed.
+Hint Resolve disjoints2_disjoints.
+
+Lemma disjoints_disjoints2:
+  forall l1 l2, disjoints l1 l2 -> disjoints2 l1 l2.
+Proof.
+  intros.
+  induction l1.
+  + unfold disjoints2.
+    intros.
+    auto.
+  + apply disjoints2_cons_inv.
+    * apply IHl1.
+      inversion H. assumption.
+    * inversion H. assumption.
+Qed.
+Hint Resolve disjoints_disjoints2.
+
+Lemma disjoints_iff:
+  forall l1 l2, disjoints l1 l2 <-> disjoints2 l1 l2.
+Proof.
+  intros.
+  split; auto.
+Qed.
