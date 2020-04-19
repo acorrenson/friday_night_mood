@@ -1,6 +1,6 @@
 # friday_nigth_mood
 
-En pleine réflexion sur un exercice de mathématique discrète concernant les langages, je me suis retrouvé à développer informellement une preuve. Pour mieux la comprendre et la maîtriser, je l'ai saisie en COQ.
+En pleine réflexion sur un exercice de mathématiques discrètes concernant les langages, je me suis retrouvé à développer informellement une preuve. Pour mieux la comprendre et la maîtriser, je l'ai saisie en COQ.
 
 ## Utilisation
 
